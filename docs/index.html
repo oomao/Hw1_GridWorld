@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HW1 GridWorld</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Press+Start+2P&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <h1>HW1 GridWorld</h1>
+        <p class="student-info">Mao 7114029004</p>
+
+        <div class="controls">
+            <label for="n-input">Enter a number between 5 and 9:</label>
+            <input type="number" id="n-input" name="n" min="5" max="9" value="5" placeholder="5" required>
+            <button type="button" id="generate-btn">Generate Square</button>
+        </div>
+
+        <div class="main-layout" id="main-layout" style="display: none;">
+            <!-- Left Side: Setup & Grid -->
+            <div class="left-panel">
+                <div class="grid-section">
+                    <h2 id="grid-title">5 x 5 Square:</h2>
+                    <p class="instruction">
+                        1. Click on a cell to set up the start grid as green or the end grid as red.
+                    </p>
+                    <p class="status-bar" id="status-bar">
+                        Click a cell to set the <strong>start point</strong>.
+                    </p>
+
+                    <div class="grid-perspective">
+                        <div class="grid" id="grid">
+                            <!-- Dynamic cells injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-item">
+                            <span class="legend-color legend-start"></span> Start
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color legend-end"></span> End
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color legend-obstacle"></span> Obstacle
+                        </div>
+                        <div class="legend-item obstacle-counter">
+                            Obstacles: <span id="obstacle-count">0</span> / <span id="max-obstacles">7</span>
+                        </div>
+                    </div>
+
+                    <!-- Parameters & Run -->
+                    <div class="params-section">
+                        <h3>Value Iteration Parameters</h3>
+                        <div class="params-row">
+                            <div class="param-group">
+                                <label for="gamma-input">Discount (γ)</label>
+                                <input type="number" id="gamma-input" value="0.9" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="param-group">
+                                <label for="reward-step-input">Step Reward</label>
+                                <input type="number" id="reward-step-input" value="-0.04" step="0.01">
+                            </div>
+                            <div class="param-group">
+                                <label for="reward-goal-input">Goal Reward</label>
+                                <input type="number" id="reward-goal-input" value="1" step="0.1">
+                            </div>
+                        </div>
+                        <div class="run-row">
+                            <button type="button" class="run-btn" id="run-vi-btn">
+                                ▶ Run Value Iteration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Interaction Results -->
+            <div class="right-panel" id="iteration-section" style="display:none;">
+                <div class="iteration-controls">
+                    <label for="iter-slider">Iteration:</label>
+                    <input type="range" id="iter-slider" min="0" max="0" value="0">
+                    <span class="iter-label" id="iter-label">0 / 0</span>
+                    <button type="button" class="play-btn" id="play-btn" title="Auto play">▶</button>
+                </div>
+
+                <div class="matrix-container">
+                    <div class="matrix-block">
+                        <h3>Value Matrix</h3>
+                        <div id="value-matrix"></div>
+                    </div>
+                    <div class="matrix-block">
+                        <h3>Policy Matrix</h3>
+                        <div id="policy-matrix"></div>
+                    </div>
+                </div>
+
+                <!-- Optimal Path -->
+                <div class="path-section" id="path-section" style="display:none;">
+                    <h3>🏆 Optimal Path</h3>
+                    <div class="path-display" id="path-display"></div>
+                    <p class="path-info" id="path-info"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
