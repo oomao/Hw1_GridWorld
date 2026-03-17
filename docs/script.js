@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const mainLayout = document.getElementById("main-layout");
 
     let n = 5;
-    let maxObstacles = 7;
+    let maxObstacles = 3;
     let startCell = null;
     let endCell = null;
     let obstacles = [];
@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             n = val;
-            maxObstacles = n === 9 ? 18 : Math.floor(n * n * 0.25);
+            maxObstacles = n - 2;
 
             gridTitle.textContent = `${n} x ${n} Square:`;
             maxObstaclesEl.textContent = maxObstacles;
