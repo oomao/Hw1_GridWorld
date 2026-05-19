@@ -844,3 +844,179 @@ GitHub 列表最上面不要顯示「Value Iteration 視覺化」。
 ### AI 回應
 
 直接把 `.git` 紀錄清掉，重新 `git init`，讓全世界就只有乾淨的唯一一個 Commit `HW1 GridWorld`，並強制作 `git push -f origin main` 更新 GitHub 端，徹底抹除任何舊標題的痕跡。
+
+---
+
+## 對話 28 — 2026/05/19
+
+### 用戶請求
+
+老師退件,評語為「內容完整但缺少 1-2 的隨機行動」。請補上 HW1-2 的隨機策略顯示與策略評估,並推到 main(commit 不要帶 Claude 標記)。
+
+### 退件原因分析
+
+對照題目要求,先前實作直接跳到 HW1-3 的 Value Iteration,但跳過了 HW1-2:
+- **HW1-2 目標**:顯示每個單元格的**隨機生成**行動(↑↓←→)作為策略
+- **HW1-2 功能要求**:使用**策略評估 (Policy Evaluation)** 推導出每個狀態的 V(s)
+
+也就是要先有「隨機策略」+「在該策略下的 V<sup>π</sup>(s)」,再進到 HW1-3 的 Value Iteration → π* / V*(s)。
+
+### AI 回應 — 新增 HW1-2 完整流程
+
+#### 1. `app.py` — 兩個新端點
+
+新增隨機策略產生 + 策略評估 API:
+
+```python
+@app.route("/api/random-policy", methods=["POST"])
+def random_policy():
+    # 對每個非終點/非障礙物的格子隨機指派 ↑↓←→
+    ...
+
+@app.route("/api/policy-evaluation", methods=["POST"])
+def policy_evaluation():
+    # Iterative Policy Evaluation:
+    #   V(s) ← r(s, π(s)) + γ V(s')
+    # 撞牆/撞障礙物則留在原地
+    ...
+```
+
+回傳 `iterations` (每次掃描完的 V snapshot)、`num_iterations`、`converged`。
+
+#### 2. UI — `templates/grid.html` & `static/script.js` & `static/style.css`
+
+新增三段:
+
+- **左側**:在 Value Iteration Parameters 上方插入「Random Policy & Policy Evaluation」區塊,含 🎲 Generate Random Policy 與 ▶ Run Policy Evaluation 兩顆紫色按鈕。
+- **右側**:在 Value Iteration 結果上方插入「Random Policy π 與 V<sup>π</sup>(s) — Policy Evaluation」並排矩陣面板。
+- **CSS**:新增 `hw-hint`、`run-row-multi`、`run-btn-secondary`、`pe-status`、`placeholder` 等樣式。
+
+#### 3. `docs/` 同步(GitHub Pages 純前端版)
+
+由於 Live Demo 走純 JS(不接 Flask 後端),需要在 `docs/script.js` 中以 JavaScript 重新實作:
+- `generateRandomPolicyJS()`:在客戶端隨機產生策略
+- `policyEvaluationJS()`:在客戶端跑迭代式策略評估
+- `runValueIterationJS()`:既有的 Value Iteration 邏輯保留
+
+#### 4. README.md
+
+補上 HW1-2 演算法說明:`V(s) ← r(s, π(s)) + γ V(s')`,以及與 HW1-3 Value Iteration 的對比。
+
+### Commit
+
+```
+ef4a828  Add HW1-2: random policy display and policy evaluation
+```
+
+(刻意不帶 `Co-Authored-By: Claude` 標記)
+
+---
+
+## 對話 29 — 2026/05/19
+
+### 用戶請求
+
+「我想要保留原本的東西 然後再添加這樣」。意思是 HW1-1 / HW1-3 區段的標題、佈局、樣式都應該維持原樣,HW1-2 只是「插入」,不要改動既有的視覺。
+
+### 問題盤點
+
+對話 28 的實作把標題改成了:
+- `HW1-1 | n x n Square`(原本是 `n x n Square:`)
+- `HW1-3 | Value Iteration Parameters`(原本是 `Value Iteration Parameters`)
+- 矩陣標題 `V*(s) Matrix` / `Optimal Policy π*`(原本是 `Value Matrix` / `Policy Matrix`)
+- 右側用 `result-block` 包裝(原本沒有外框)
+
+### AI 回應 — 還原既有 UI
+
+- `templates/grid.html` 與 `docs/index.html`:把所有標題文字、結構、`h2`/`h3` 階層還原。HW1-2 區塊改成「乾淨的 `params-section` + 右側 `random-section` div」,沒有額外包裝。
+- `docs/script.js`:把 `gridTitle.textContent = '${n} x ${n} Square:'` 改回原文字。
+- `static/style.css` / `docs/style.css`:移除多餘的 `hw-section`、`result-block`、`matrix-block h4`,只保留 HW1-2 真正需要的 5 條規則。
+
+### Commit
+
+```
+0136e00  Keep original HW1-1/HW1-3 layout; only insert HW1-2 panel
+```
+
+### Push 紀錄
+
+`git push origin main` 第一次被 Claude Code auto-mode 攔截兩次(理由:「直接 push main 跳過 PR 審查」),向使用者說明後,再次嘗試成功推送 `38c8153..0136e00`。
+
+---
+
+## 對話 30 — 2026/05/19
+
+### 用戶請求
+
+「感覺用起來沒有很直覺 你可以叫evaluate實際用看看DEMO嗎 然後再做調整」 → 後來自己給出明確 feedback:「就是隨機是可選的狀態 不需要每次都要隨機才可以下一步」。
+
+### 問題
+
+`Run Policy Evaluation` 按鈕初始為 `disabled`,只有按下 `Generate Random Policy` 後才會解鎖。這讓 HW1-2 流程感覺被強制成「兩步」,使用者覺得彆扭。
+
+### 是否違反題意?
+
+題目只要求兩件事:
+1. 顯示隨機箭頭策略
+2. 用策略評估算出 V(s)
+
+兩者「同時呈現」即可,並沒有強制要先按一顆才能按另一顆。所以拿掉 disabled 不違反題意。
+
+### AI 回應 — 解除 gate,自動補產
+
+- 移除 HTML 上 `run-pe-btn` 的 `disabled` 屬性。
+- `script.js` (Flask 與 docs 版):把「先產隨機策略」抽成 `fetchRandomPolicy()` / `generateRandomPolicyJS()`,在按 Run Policy Evaluation 時若 `randomPolicy` 尚未存在,就先自動產一個再評估。
+- 移除 `runPeBtn.disabled = false/true` 的相關狀態邏輯。
+
+行為變更:
+- 🎲 Generate Random Policy — 任何時候可按,重抽箭頭。
+- ▶ Run Policy Evaluation — 任何時候可按,沒抽過就自動抽。
+
+### Commit
+
+```
+641b6ce  Make Random Policy generation optional, not a gate
+```
+
+---
+
+## 對話 31 — 2026/05/19
+
+### 用戶請求
+
+使用者貼出 Live Demo 截圖,V<sup>π</sup>(s) 矩陣大部分格子都是 `-0.40`,問「這樣真的沒問題嗎 我覺得很奇怪」,後續要求「驗證所有情況都是正確的」。
+
+### 數學解釋
+
+在 step_reward = −0.04、γ = 0.9 的設定下,如果格子在隨機策略下進入無限迴圈(例如撞牆原地、或在兩格間來回跳),Bellman expectation 的不動點:
+
+```
+V = −0.04 + 0.9 · V    ⇒    V = −0.04 / (1 − 0.9) = −0.4
+```
+
+所以多數格子顯示 −0.40 是**正確的**,代表「在這個爛策略下永遠走不到 goal」。這正是 HW1-2 的對比意義:隨機策略很差 → 才需要 HW1-3 的 Value Iteration 找最佳策略。
+
+### 驗證腳本 `verify_policy_eval.py`(未 commit)
+
+寫一支完整驗證:對 8 個 case 把 `policy_evaluation` 端點輸出和「把問題列成線性方程組 `(I − γP) V = R` 用 `numpy.linalg.solve` 解析求解」逐格比對。
+
+| # | Case | γ | max\|V_iter − V_exact\| | 結果 |
+|---|------|---|------|------|
+| 1 | 截圖那張 5×5(退化隨機策略) | 0.9 | 0.000000 | ✅ |
+| 2 | 上排 → → → → ↓ 直達終點 | 0.9 | 0.000000 | ✅ |
+| 3 | 全部 ↑ 撞牆 | 0.9 | 0.000000 | ✅ |
+| 4 | 蛇形路徑走遍 5×5 | 0.9 | 0.004599 | ✅ |
+| 5 | 7×7 對角障礙物 | 0.9 | 0.004599 | ✅ |
+| 6 | 截圖場景,γ=0.5 | 0.5 | 0.000000 | ✅ |
+| 7 | 截圖場景,γ=0.7 | 0.7 | 0.003333 | ✅ |
+| 8 | 截圖場景,γ=0.99 | 0.99 | 0.030000 | ✅ |
+
+**結論:8/8 全過,演算法正確。**
+
+兩種微小誤差來源:
+1. **0.000~0.005 的差**:`app.py` 的 snapshot 把 V `round(_, 2)`,顯示精度本來就是 2 位小數。
+2. **γ=0.99 的 0.03 差**:max_iters=500 對 γ→1 的 case 不夠收斂。把 threshold 拉到 1e-10、max_iters 拉到 20000 重跑,V 完美收斂到 −4.000000(= 解析解)。作業預設 γ=0.9 完全沒這問題(收斂只需 ~189 sweep)。
+
+### 後續處理
+
+使用者表示「你確認沒問題就好」,故 `verify_policy_eval.py` 不 commit、僅保留為本地驗證腳本。
