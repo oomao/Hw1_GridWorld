@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
             n = val;
             maxObstacles = n - 2;
 
-            gridTitle.textContent = `HW1-1 | ${n} x ${n} Square`;
+            gridTitle.textContent = `${n} x ${n} Square:`;
             maxObstaclesEl.textContent = maxObstacles;
 
             grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;

@@ -28,10 +28,9 @@
             <!-- Left Side: Setup & Grid -->
             <div class="left-panel">
                 <div class="grid-section">
-                    <h2>HW1-1 &nbsp;|&nbsp; {{ n }} x {{ n }} Square</h2>
+                    <h2>{{ n }} x {{ n }} Square:</h2>
                     <p class="instruction">
-                        1. Click on a cell to set up the start grid as green or the end grid as red.<br>
-                        2. Place at most {{ max_obstacles }} obstacles (n − 2) by clicking remaining cells.
+                        1. Click on a cell to set up the start grid as green or the end grid as red.
                     </p>
                     <p class="status-bar" id="status-bar">
                         Click a cell to set the <strong>start point</strong>.
@@ -66,9 +65,9 @@
                         </div>
                     </div>
 
-                    <!-- ===== HW1-2: Random Policy + Policy Evaluation ===== -->
-                    <div class="params-section hw-section">
-                        <h3>HW1-2 &nbsp;|&nbsp; Random Policy &amp; Policy Evaluation</h3>
+                    <!-- HW1-2: Random Policy + Policy Evaluation -->
+                    <div class="params-section">
+                        <h3>Random Policy &amp; Policy Evaluation</h3>
                         <p class="hw-hint">
                             Generate a random action (↑↓←→) per cell, then compute V(s) under that policy
                             using iterative policy evaluation.
@@ -83,9 +82,9 @@
                         </div>
                     </div>
 
-                    <!-- ===== HW1-3: Value Iteration Parameters ===== -->
-                    <div class="params-section hw-section">
-                        <h3>HW1-3 &nbsp;|&nbsp; Value Iteration Parameters</h3>
+                    <!-- Parameters & Run -->
+                    <div class="params-section">
+                        <h3>Value Iteration Parameters</h3>
                         <div class="params-row">
                             <div class="param-group">
                                 <label for="gamma-input">Discount (γ)</label>
@@ -112,24 +111,22 @@
             <!-- Right Side: Interaction Results -->
             <div class="right-panel">
                 <!-- HW1-2 result panel -->
-                <div class="result-block" id="random-section" style="display:none;">
-                    <h3>HW1-2 · Random Policy &amp; V<sup>π</sup>(s)</h3>
+                <div id="random-section" style="display:none;">
                     <div class="matrix-container">
                         <div class="matrix-block">
-                            <h4>Random Policy π</h4>
+                            <h3>Random Policy π</h3>
                             <div id="random-policy-matrix"></div>
                         </div>
                         <div class="matrix-block">
-                            <h4>V<sup>π</sup>(s) — Policy Evaluation</h4>
+                            <h3>V<sup>π</sup>(s) — Policy Evaluation</h3>
                             <div id="random-value-matrix"></div>
                             <p class="pe-status" id="pe-status"></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- HW1-3 result panel -->
-                <div class="result-block" id="iteration-section" style="display:none;">
-                    <h3>HW1-3 · Value Iteration → Optimal π* &amp; V*(s)</h3>
+                <!-- HW1-3 Value Iteration result panel -->
+                <div id="iteration-section" style="display:none;">
                     <div class="iteration-controls">
                         <label for="iter-slider">Iteration:</label>
                         <input type="range" id="iter-slider" min="0" max="0" value="0">
@@ -139,18 +136,18 @@
 
                     <div class="matrix-container">
                         <div class="matrix-block">
-                            <h4>V*(s) Matrix</h4>
+                            <h3>Value Matrix</h3>
                             <div id="value-matrix"></div>
                         </div>
                         <div class="matrix-block">
-                            <h4>Optimal Policy π*</h4>
+                            <h3>Policy Matrix</h3>
                             <div id="policy-matrix"></div>
                         </div>
                     </div>
 
                     <!-- Optimal Path -->
                     <div class="path-section" id="path-section" style="display:none;">
-                        <h4>🏆 Optimal Path</h4>
+                        <h3>🏆 Optimal Path</h3>
                         <div class="path-display" id="path-display"></div>
                         <p class="path-info" id="path-info"></p>
                     </div>
