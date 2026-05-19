@@ -14,13 +14,23 @@
 
 ## ✨ 功能特色
 
+### HW1-1 · 網格地圖
 - **可調整的 Grid 大小**：支援 5×5 到 9×9 的方格世界
 - **互動式設定**：點擊設定起點（綠色）、終點（紅色）、障礙物（灰色）
+- 障礙物上限為 `n − 2`
+
+### HW1-2 · 隨機策略 & 策略評估
+- **🎲 Generate Random Policy**：在每個非終點/非障礙的格子上隨機產生一個行動箭頭 (↑↓←→)
+- **▶ Run Policy Evaluation**：對該隨機策略執行**迭代策略評估 (Iterative Policy Evaluation)**，依 Bellman expectation equation 求得 V<sup>π</sup>(s)
+  - `V(s) ← r(s, π(s)) + γ V(s')`
+- 隨機策略矩陣與 V<sup>π</sup>(s) 並排顯示，可直接看到「隨便走」會得到什麼價值
+
+### HW1-3 · 價值迭代 → 最佳策略
 - **Value Iteration 演算法**：
-  - 使用 Bellman Equation：`V(s) = max_a Σ p(s'|s,a)[r + γV(s')]`
+  - 使用 Bellman optimality equation：`V*(s) = max_a Σ p(s'|s,a)[r + γV*(s')]`
   - 可調整 Discount (γ)、Step Reward、Goal Reward
-- **迭代過程視覺化**：滑桿 + 自動播放，觀察每步 Value Matrix 的變化
-- **Policy Matrix**：顯示每個狀態的最佳行動方向（↑↓←→）
+- **迭代過程視覺化**：滑桿 + 自動播放，觀察每步 Value Matrix 收斂的過程
+- **Optimal Policy π\***：顯示每個狀態的最佳行動方向（取代 HW1-2 的隨機箭頭）
 - **Optimal Path**：以視覺化 Grid 畫出 Value Iteration 找到的最佳路徑
 
 ## 📁 專案結構
@@ -63,14 +73,23 @@ python app.py
 
 ## 🧮 演算法說明
 
-本專案實作的 **Value Iteration** 演算法流程：
+### Policy Evaluation (HW1-2)
+
+對於一個給定的（隨機）確定性策略 π：
+
+1. 初始化所有狀態的 V(s) = 0
+2. 重複更新直到收斂：
+   - `V(s) ← r(s, π(s)) + γ V(s')`
+   - 其中 s' 是依策略 π(s) 從 s 走一步抵達的狀態（撞牆/撞障礙物則留在原地）
+
+### Value Iteration (HW1-3)
 
 1. 初始化所有狀態的 V(s) = 0
 2. 重複更新直到收斂：
    - `V(s) ← max_a Σ p(s'|s,a)[r + γV(s')]`
 3. 收斂後提取最佳策略：
-   - `π(s) = argmax_a Σ p(s'|s,a)[r + γV(s')]`
-4. 沿著策略追蹤最佳路徑
+   - `π*(s) = argmax_a Σ p(s'|s,a)[r + γV(s')]`
+4. 沿著最佳策略追蹤路徑
 
 ### 參數說明
 

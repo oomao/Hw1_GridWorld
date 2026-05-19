@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", function () {
     let endCell = null;
     let obstacles = [];
 
+    const ACTION_KEYS = ["↑", "↓", "←", "→"];
+    const ACTION_DELTA = { "↑": [-1, 0], "↓": [1, 0], "←": [0, -1], "→": [0, 1] };
+
     if (generateBtn) {
         generateBtn.addEventListener("click", function () {
             let val = parseInt(nInput.value, 10);
@@ -24,10 +27,9 @@ document.addEventListener("DOMContentLoaded", function () {
             n = val;
             maxObstacles = n - 2;
 
-            gridTitle.textContent = `${n} x ${n} Square:`;
+            gridTitle.textContent = `HW1-1 | ${n} x ${n} Square`;
             maxObstaclesEl.textContent = maxObstacles;
 
-            // Generate grid
             grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
             grid.innerHTML = "";
             for (let i = 0; i < n; i++) {
@@ -44,8 +46,12 @@ document.addEventListener("DOMContentLoaded", function () {
             startCell = null;
             endCell = null;
             obstacles = [];
+            randomPolicy = null;
+            document.getElementById("random-section").style.display = "none";
             document.getElementById("iteration-section").style.display = "none";
             document.getElementById("path-section").style.display = "none";
+            const runPeBtn = document.getElementById("run-pe-btn");
+            if (runPeBtn) runPeBtn.disabled = true;
             mainLayout.style.display = "flex";
             updateStatus();
         });
@@ -116,7 +122,211 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // ========== Value Iteration (Client-side JS implementation) ==========
+    // ========== Shared helpers ==========
+
+    function isObstacle(r, c) {
+        return obstacles.some(o => parseInt(o.dataset.row, 10) === r && parseInt(o.dataset.col, 10) === c);
+    }
+
+    function obstacleSetKey(r, c) { return r + "," + c; }
+
+    function buildObstacleSet() {
+        return new Set(obstacles.map(o => obstacleSetKey(parseInt(o.dataset.row, 10), parseInt(o.dataset.col, 10))));
+    }
+
+    function getEndRC() {
+        if (!endCell) return [-1, -1];
+        return [parseInt(endCell.dataset.row, 10), parseInt(endCell.dataset.col, 10)];
+    }
+
+    function getStartRC() {
+        if (!startCell) return [-1, -1];
+        return [parseInt(startCell.dataset.row, 10), parseInt(startCell.dataset.col, 10)];
+    }
+
+    function renderMatrixTable(targetEl, getCellValue, getCellClass) {
+        let html = '<table class="matrix-table">';
+        html += '<tr><th></th>';
+        for (let c = 0; c < n; c++) html += '<th>' + c + '</th>';
+        html += '</tr>';
+        for (let r = 0; r < n; r++) {
+            html += '<tr><th>' + r + '</th>';
+            for (let c = 0; c < n; c++) {
+                const cls = getCellClass(r, c) || "";
+                html += '<td class="' + cls + '">' + getCellValue(r, c) + '</td>';
+            }
+            html += '</tr>';
+        }
+        html += '</table>';
+        targetEl.innerHTML = html;
+    }
+
+    function valueCellClass(r, c) {
+        const [sr, sc] = getStartRC();
+        const [er, ec] = getEndRC();
+        if (sr === r && sc === c) return "cell-start";
+        if (er === r && ec === c) return "cell-end";
+        if (isObstacle(r, c)) return "cell-obstacle";
+        return "";
+    }
+
+    // ========== HW1-2: Random Policy + Policy Evaluation ==========
+
+    const genRandomBtn = document.getElementById("gen-random-btn");
+    const runPeBtn = document.getElementById("run-pe-btn");
+    const randomSection = document.getElementById("random-section");
+    const randomPolicyEl = document.getElementById("random-policy-matrix");
+    const randomValueEl = document.getElementById("random-value-matrix");
+    const peStatus = document.getElementById("pe-status");
+
+    let randomPolicy = null;
+
+    function generateRandomPolicyJS() {
+        const obstacleSet = buildObstacleSet();
+        const [er, ec] = getEndRC();
+        const policy = [];
+        for (let r = 0; r < n; r++) {
+            const row = [];
+            for (let c = 0; c < n; c++) {
+                if (obstacleSet.has(obstacleSetKey(r, c))) {
+                    row.push("■");
+                } else if (r === er && c === ec) {
+                    row.push("★");
+                } else {
+                    row.push(ACTION_KEYS[Math.floor(Math.random() * 4)]);
+                }
+            }
+            policy.push(row);
+        }
+        return policy;
+    }
+
+    function policyEvaluationJS(policy, gamma, rewardStep, rewardGoal) {
+        const obstacleSet = buildObstacleSet();
+        const [er, ec] = getEndRC();
+        const maxIters = 500;
+        const threshold = 1e-4;
+
+        let V = Array(n).fill().map(() => Array(n).fill(0.0));
+        let converged = false;
+        let numIterations = maxIters;
+
+        for (let it = 0; it < maxIters; it++) {
+            let V_new = Array(n).fill().map(() => Array(n).fill(0.0));
+            let delta = 0.0;
+
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    if (obstacleSet.has(obstacleSetKey(r, c))) {
+                        V_new[r][c] = 0.0;
+                        continue;
+                    }
+                    if (r === er && c === ec) {
+                        V_new[r][c] = rewardGoal;
+                        continue;
+                    }
+
+                    const sym = policy[r][c];
+                    const delta_rc = ACTION_DELTA[sym];
+                    if (!delta_rc) { V_new[r][c] = V[r][c]; continue; }
+                    let nr = r + delta_rc[0], nc = c + delta_rc[1];
+                    const offGrid = nr < 0 || nr >= n || nc < 0 || nc >= n;
+                    const intoObstacle = !offGrid && obstacleSet.has(obstacleSetKey(nr, nc));
+                    if (offGrid || intoObstacle) { nr = r; nc = c; }
+
+                    V_new[r][c] = rewardStep + gamma * V[nr][nc];
+                    delta = Math.max(delta, Math.abs(V_new[r][c] - V[r][c]));
+                }
+            }
+
+            V = V_new;
+            if (delta < threshold) {
+                converged = true;
+                numIterations = it + 1;
+                break;
+            }
+        }
+
+        return { V: V, converged: converged, num_iterations: numIterations };
+    }
+
+    function renderRandomPolicy() {
+        if (!randomPolicy) return;
+        renderMatrixTable(
+            randomPolicyEl,
+            function (r, c) {
+                const sym = randomPolicy[r][c];
+                return sym === "■" ? "" : sym;
+            },
+            function (r, c) {
+                let base = "policy-cell";
+                if (isObstacle(r, c)) return base + " cell-obstacle";
+                if (randomPolicy[r][c] === "★") return base + " cell-end";
+                const [sr, sc] = getStartRC();
+                if (sr === r && sc === c) return base + " cell-start";
+                return base;
+            }
+        );
+    }
+
+    function renderRandomValue(V) {
+        renderMatrixTable(
+            randomValueEl,
+            function (r, c) { return V[r][c].toFixed(2); },
+            valueCellClass
+        );
+    }
+
+    if (genRandomBtn) {
+        genRandomBtn.addEventListener("click", function () {
+            if (!endCell) {
+                statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
+                return;
+            }
+            randomPolicy = generateRandomPolicyJS();
+            randomSection.style.display = "block";
+            renderRandomPolicy();
+            randomValueEl.innerHTML = '<p class="placeholder">Click "Run Policy Evaluation" to compute V<sup>π</sup>(s).</p>';
+            if (peStatus) peStatus.textContent = "";
+            runPeBtn.disabled = false;
+            statusBar.innerHTML = '🎲 Random policy generated. Now run Policy Evaluation.';
+        });
+    }
+
+    if (runPeBtn) {
+        runPeBtn.addEventListener("click", function () {
+            if (!randomPolicy) {
+                statusBar.innerHTML = '⚠️ Please generate a random policy first.';
+                return;
+            }
+            if (!endCell) {
+                statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
+                return;
+            }
+
+            const gamma = parseFloat(document.getElementById("gamma-input").value) || 0.9;
+            const rewardStep = parseFloat(document.getElementById("reward-step-input").value);
+            const rewardGoal = parseFloat(document.getElementById("reward-goal-input").value);
+
+            runPeBtn.disabled = true;
+            runPeBtn.textContent = "⏳ Evaluating...";
+
+            setTimeout(() => {
+                const result = policyEvaluationJS(randomPolicy, gamma, rewardStep, rewardGoal);
+                renderRandomValue(result.V);
+                if (peStatus) {
+                    peStatus.innerHTML =
+                        (result.converged ? '✅ Converged' : '⚠️ Reached max iterations') +
+                        ' in <strong>' + result.num_iterations + '</strong> sweeps · γ=' + gamma;
+                }
+                runPeBtn.disabled = false;
+                runPeBtn.textContent = "▶ Run Policy Evaluation";
+                statusBar.innerHTML = '✅ Policy Evaluation done in <strong>' + result.num_iterations + '</strong> sweeps.';
+            }, 30);
+        });
+    }
+
+    // ========== HW1-3: Value Iteration ==========
 
     const runBtn = document.getElementById("run-vi-btn");
     const iterSection = document.getElementById("iteration-section");
@@ -135,16 +345,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const pathDisplay = document.getElementById("path-display");
     const pathInfo = document.getElementById("path-info");
 
-    function runValueIterationJS(n, startR, startC, endR, endC, obstacleSet, gamma, rewardStep, rewardGoal) {
+    function runValueIterationJS(startR, startC, endR, endC, obstacleSet, gamma, rewardStep, rewardGoal) {
         const maxIters = 500;
         const threshold = 1e-4;
 
         let V = Array(n).fill().map(() => Array(n).fill(0.0));
         let iterations = [];
         iterations.push(JSON.parse(JSON.stringify(V)));
-
-        const actions = { '↑': [-1, 0], '↓': [1, 0], '←': [0, -1], '→': [0, 1] };
-        const actionKeys = ['↑', '↓', '←', '→'];
 
         let converged = false;
         let numIterations = maxIters;
@@ -155,7 +362,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             for (let r = 0; r < n; r++) {
                 for (let c = 0; c < n; c++) {
-                    if (obstacleSet.has(`${r},${c}`)) {
+                    if (obstacleSet.has(obstacleSetKey(r, c))) {
                         V_new[r][c] = 0.0;
                         continue;
                     }
@@ -165,13 +372,13 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
 
                     let bestVal = -Infinity;
-                    for (let a of actionKeys) {
-                        let dr = actions[a][0], dc = actions[a][1];
-                        let nr = r + dr, nc = c + dc;
-                        if (nr < 0 || nr >= n || nc < 0 || nc >= n) {
-                            nr = r; nc = c;
-                        }
-                        let val = rewardStep + gamma * V[nr][nc];
+                    for (let a of ACTION_KEYS) {
+                        const d = ACTION_DELTA[a];
+                        let nr = r + d[0], nc = c + d[1];
+                        const offGrid = nr < 0 || nr >= n || nc < 0 || nc >= n;
+                        const intoObstacle = !offGrid && obstacleSet.has(obstacleSetKey(nr, nc));
+                        if (offGrid || intoObstacle) { nr = r; nc = c; }
+                        const val = rewardStep + gamma * V[nr][nc];
                         if (val > bestVal) bestVal = val;
                     }
 
@@ -193,7 +400,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let policy = Array(n).fill().map(() => Array(n).fill(''));
         for (let r = 0; r < n; r++) {
             for (let c = 0; c < n; c++) {
-                if (obstacleSet.has(`${r},${c}`)) {
+                if (obstacleSet.has(obstacleSetKey(r, c))) {
                     policy[r][c] = '■';
                     continue;
                 }
@@ -204,17 +411,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 let bestVal = -Infinity;
                 let bestAction = '↑';
-                for (let a of actionKeys) {
-                    let dr = actions[a][0], dc = actions[a][1];
-                    let nr = r + dr, nc = c + dc;
-                    if (nr < 0 || nr >= n || nc < 0 || nc >= n) {
-                        nr = r; nc = c;
-                    }
-                    let val = rewardStep + gamma * V[nr][nc];
-                    if (val > bestVal) {
-                        bestVal = val;
-                        bestAction = a;
-                    }
+                for (let a of ACTION_KEYS) {
+                    const d = ACTION_DELTA[a];
+                    let nr = r + d[0], nc = c + d[1];
+                    const offGrid = nr < 0 || nr >= n || nc < 0 || nc >= n;
+                    const intoObstacle = !offGrid && obstacleSet.has(obstacleSetKey(nr, nc));
+                    if (offGrid || intoObstacle) { nr = r; nc = c; }
+                    const val = rewardStep + gamma * V[nr][nc];
+                    if (val > bestVal) { bestVal = val; bestAction = a; }
                 }
                 policy[r][c] = bestAction;
             }
@@ -226,12 +430,12 @@ document.addEventListener("DOMContentLoaded", function () {
         let steps = 0;
         while (!(currR === endR && currC === endC) && steps < n * n * 2) {
             let a = policy[currR][currC];
-            if (!a || a === '■') break;
-            let dr = actions[a][0], dc = actions[a][1];
-            let nr = currR + dr, nc = currC + dc;
-            if (nr < 0 || nr >= n || nc < 0 || nc >= n) {
-                nr = currR; nc = currC;
-            }
+            if (!a || a === '■' || a === '★') break;
+            const d = ACTION_DELTA[a];
+            let nr = currR + d[0], nc = currC + d[1];
+            const offGrid = nr < 0 || nr >= n || nc < 0 || nc >= n;
+            const intoObstacle = !offGrid && obstacleSet.has(obstacleSetKey(nr, nc));
+            if (offGrid || intoObstacle) break;
             if (nr === currR && nc === currC) break;
             currR = nr; currC = nc;
             path.push([currR, currC]);
@@ -258,19 +462,15 @@ document.addEventListener("DOMContentLoaded", function () {
             const rewardStep = parseFloat(document.getElementById("reward-step-input").value);
             const rewardGoal = parseFloat(document.getElementById("reward-goal-input").value);
 
-            const startRow = parseInt(startCell.dataset.row, 10);
-            const startCol = parseInt(startCell.dataset.col, 10);
-            const endRow = parseInt(endCell.dataset.row, 10);
-            const endCol = parseInt(endCell.dataset.col, 10);
-
-            const obstacleSet = new Set(obstacles.map(o => `${o.dataset.row},${o.dataset.col}`));
+            const [startR, startC] = getStartRC();
+            const [endR, endC] = getEndRC();
+            const obstacleSet = buildObstacleSet();
 
             runBtn.disabled = true;
             runBtn.textContent = "⏳ Computing...";
 
-            // Run VI synchronously (fast enough for our sizes)
             setTimeout(() => {
-                const data = runValueIterationJS(n, startRow, startCol, endRow, endCol, obstacleSet, gamma, rewardStep, rewardGoal);
+                const data = runValueIterationJS(startR, startC, endR, endC, obstacleSet, gamma, rewardStep, rewardGoal);
 
                 iterationsData = data.iterations;
                 policyData = data.policy;
@@ -283,7 +483,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 renderPolicy();
                 updateIterLabel();
 
-                // Render optimal path
                 pathData = data.optimal_path || [];
                 renderPath();
 
@@ -341,61 +540,30 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderIteration(idx) {
         const matrix = iterationsData[idx];
         if (!matrix) return;
-
-        let html = '<table class="matrix-table">';
-        html += '<tr><th></th>';
-        for (let c = 0; c < n; c++) html += '<th>' + c + '</th>';
-        html += '</tr>';
-
-        for (let r = 0; r < n; r++) {
-            html += '<tr><th>' + r + '</th>';
-            for (let c = 0; c < n; c++) {
-                let cls = "";
-                if (startCell && parseInt(startCell.dataset.row, 10) === r && parseInt(startCell.dataset.col, 10) === c) {
-                    cls = "cell-start";
-                } else if (endCell && parseInt(endCell.dataset.row, 10) === r && parseInt(endCell.dataset.col, 10) === c) {
-                    cls = "cell-end";
-                } else if (isObstacle(r, c)) {
-                    cls = "cell-obstacle";
-                }
-                html += '<td class="' + cls + '">' + matrix[r][c].toFixed(2) + '</td>';
-            }
-            html += '</tr>';
-        }
-
-        html += '</table>';
-        valueMatrixEl.innerHTML = html;
+        renderMatrixTable(
+            valueMatrixEl,
+            function (r, c) { return matrix[r][c].toFixed(2); },
+            valueCellClass
+        );
     }
 
     function renderPolicy() {
         if (!policyData || policyData.length === 0) return;
-
-        let html = '<table class="matrix-table">';
-        html += '<tr><th></th>';
-        for (let c = 0; c < n; c++) html += '<th>' + c + '</th>';
-        html += '</tr>';
-
-        for (let r = 0; r < n; r++) {
-            html += '<tr><th>' + r + '</th>';
-            for (let c = 0; c < n; c++) {
-                let cls = "";
-                if (isObstacle(r, c)) {
-                    cls = "cell-obstacle";
-                } else if (policyData[r][c] === "★") {
-                    cls = "cell-end";
-                }
-                let policyChar = policyData[r][c] === '■' ? '' : policyData[r][c];
-                html += '<td class="policy-cell ' + cls + '">' + policyChar + '</td>';
+        renderMatrixTable(
+            policyMatrixEl,
+            function (r, c) {
+                const sym = policyData[r][c];
+                return sym === '■' ? '' : sym;
+            },
+            function (r, c) {
+                let base = "policy-cell";
+                if (isObstacle(r, c)) return base + " cell-obstacle";
+                if (policyData[r][c] === "★") return base + " cell-end";
+                const [sr, sc] = getStartRC();
+                if (sr === r && sc === c) return base + " cell-start";
+                return base;
             }
-            html += '</tr>';
-        }
-
-        html += '</table>';
-        policyMatrixEl.innerHTML = html;
-    }
-
-    function isObstacle(r, c) {
-        return obstacles.some(o => parseInt(o.dataset.row, 10) === r && parseInt(o.dataset.col, 10) === c);
+        );
     }
 
     function renderPath() {
@@ -407,10 +575,8 @@ document.addEventListener("DOMContentLoaded", function () {
             pathSet[pathData[i][0] + "," + pathData[i][1]] = i;
         }
 
-        var startR = startCell ? parseInt(startCell.dataset.row, 10) : -1;
-        var startC = startCell ? parseInt(startCell.dataset.col, 10) : -1;
-        var endR = endCell ? parseInt(endCell.dataset.row, 10) : -1;
-        var endC = endCell ? parseInt(endCell.dataset.col, 10) : -1;
+        const [startR, startC] = getStartRC();
+        const [endR, endC] = getEndRC();
 
         var html = '<table class="path-grid" style="grid-template-columns: repeat(' + n + ', 1fr);">';
         for (var r = 0; r < n; r++) {
@@ -448,7 +614,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var success = (reached[0] === endR && reached[1] === endC);
 
         if (success) {
-            pathInfo.innerHTML = '✅ Optimal path: <strong>' + (pathData.length - 1) + '</strong> steps &nbsp;|&nbsp; π(s) = argmax<sub>a</sub> Σ p(s\'|s,a)[r + γV(s\')]';
+            pathInfo.innerHTML = '✅ Optimal path: <strong>' + (pathData.length - 1) + '</strong> steps &nbsp;|&nbsp; π*(s) = argmax<sub>a</sub> Σ p(s\'|s,a)[r + γV(s\')]';
         } else {
             pathInfo.innerHTML = '⚠️ No complete path found to the goal.';
         }

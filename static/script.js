@@ -76,7 +76,176 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateStatus();
 
-    // ========== Value Iteration ==========
+    // ========== Shared helpers ==========
+
+    function isObstacle(r, c) {
+        return obstacles.some(function (o) {
+            return parseInt(o.dataset.row, 10) === r && parseInt(o.dataset.col, 10) === c;
+        });
+    }
+
+    function getCoords() {
+        return {
+            startRow: startCell ? parseInt(startCell.dataset.row, 10) : -1,
+            startCol: startCell ? parseInt(startCell.dataset.col, 10) : -1,
+            endRow: endCell ? parseInt(endCell.dataset.row, 10) : -1,
+            endCol: endCell ? parseInt(endCell.dataset.col, 10) : -1,
+            obstacleCoords: obstacles.map(function (o) {
+                return [parseInt(o.dataset.row, 10), parseInt(o.dataset.col, 10)];
+            })
+        };
+    }
+
+    function renderMatrixTable(targetEl, getCellValue, getCellClass) {
+        let html = '<table class="matrix-table">';
+        html += '<tr><th></th>';
+        for (let c = 0; c < n; c++) html += '<th>' + c + '</th>';
+        html += '</tr>';
+        for (let r = 0; r < n; r++) {
+            html += '<tr><th>' + r + '</th>';
+            for (let c = 0; c < n; c++) {
+                const cls = getCellClass(r, c) || "";
+                html += '<td class="' + cls + '">' + getCellValue(r, c) + '</td>';
+            }
+            html += '</tr>';
+        }
+        html += '</table>';
+        targetEl.innerHTML = html;
+    }
+
+    function valueCellClass(r, c) {
+        if (startCell && parseInt(startCell.dataset.row, 10) === r && parseInt(startCell.dataset.col, 10) === c) return "cell-start";
+        if (endCell && parseInt(endCell.dataset.row, 10) === r && parseInt(endCell.dataset.col, 10) === c) return "cell-end";
+        if (isObstacle(r, c)) return "cell-obstacle";
+        return "";
+    }
+
+    // ========== HW1-2: Random Policy + Policy Evaluation ==========
+
+    const genRandomBtn = document.getElementById("gen-random-btn");
+    const runPeBtn = document.getElementById("run-pe-btn");
+    const randomSection = document.getElementById("random-section");
+    const randomPolicyEl = document.getElementById("random-policy-matrix");
+    const randomValueEl = document.getElementById("random-value-matrix");
+    const peStatus = document.getElementById("pe-status");
+
+    let randomPolicy = null;
+
+    function renderRandomPolicy() {
+        if (!randomPolicy) return;
+        renderMatrixTable(
+            randomPolicyEl,
+            function (r, c) {
+                const sym = randomPolicy[r][c];
+                return sym === "■" ? "" : sym;
+            },
+            function (r, c) {
+                let base = "policy-cell";
+                if (isObstacle(r, c)) return base + " cell-obstacle";
+                if (randomPolicy[r][c] === "★") return base + " cell-end";
+                if (startCell && parseInt(startCell.dataset.row, 10) === r && parseInt(startCell.dataset.col, 10) === c) return base + " cell-start";
+                return base;
+            }
+        );
+    }
+
+    function renderRandomValue(matrix) {
+        renderMatrixTable(
+            randomValueEl,
+            function (r, c) { return matrix[r][c].toFixed(2); },
+            valueCellClass
+        );
+    }
+
+    if (genRandomBtn) {
+        genRandomBtn.addEventListener("click", function () {
+            if (!endCell) {
+                statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
+                return;
+            }
+            const { endRow, endCol, obstacleCoords } = getCoords();
+
+            fetch("/api/random-policy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    n: n,
+                    end: [endRow, endCol],
+                    obstacles: obstacleCoords
+                })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    randomPolicy = data.policy;
+                    randomSection.style.display = "block";
+                    renderRandomPolicy();
+                    randomValueEl.innerHTML = '<p class="placeholder">Click "Run Policy Evaluation" to compute V<sup>π</sup>(s).</p>';
+                    if (peStatus) peStatus.textContent = "";
+                    runPeBtn.disabled = false;
+                    statusBar.innerHTML = '🎲 Random policy generated. Now run Policy Evaluation.';
+                })
+                .catch(function (err) {
+                    console.error(err);
+                    statusBar.innerHTML = '❌ Error generating random policy.';
+                });
+        });
+    }
+
+    if (runPeBtn) {
+        runPeBtn.addEventListener("click", function () {
+            if (!randomPolicy) {
+                statusBar.innerHTML = '⚠️ Please generate a random policy first.';
+                return;
+            }
+            if (!endCell) {
+                statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
+                return;
+            }
+
+            const { endRow, endCol, obstacleCoords } = getCoords();
+            const gamma = parseFloat(document.getElementById("gamma-input").value) || 0.9;
+            const rewardStep = parseFloat(document.getElementById("reward-step-input").value);
+            const rewardGoal = parseFloat(document.getElementById("reward-goal-input").value);
+
+            runPeBtn.disabled = true;
+            runPeBtn.textContent = "⏳ Evaluating...";
+
+            fetch("/api/policy-evaluation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    n: n,
+                    end: [endRow, endCol],
+                    obstacles: obstacleCoords,
+                    policy: randomPolicy,
+                    gamma: gamma,
+                    reward_step: rewardStep,
+                    reward_goal: rewardGoal
+                })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    const finalV = data.iterations[data.iterations.length - 1];
+                    renderRandomValue(finalV);
+                    if (peStatus) {
+                        peStatus.innerHTML =
+                            (data.converged ? '✅ Converged' : '⚠️ Reached max iterations') +
+                            ' in <strong>' + data.num_iterations + '</strong> sweeps · γ=' + gamma;
+                    }
+                    runPeBtn.disabled = false;
+                    runPeBtn.textContent = "▶ Run Policy Evaluation";
+                    statusBar.innerHTML = '✅ Policy Evaluation done in <strong>' + data.num_iterations + '</strong> sweeps.';
+                })
+                .catch(function (err) {
+                    console.error(err);
+                    runPeBtn.disabled = false;
+                    runPeBtn.textContent = "▶ Run Policy Evaluation";
+                    statusBar.innerHTML = '❌ Error running Policy Evaluation.';
+                });
+        });
+    }
+
+    // ========== HW1-3: Value Iteration ==========
 
     const runBtn = document.getElementById("run-vi-btn");
     const iterSection = document.getElementById("iteration-section");
@@ -106,14 +275,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const rewardStep = parseFloat(document.getElementById("reward-step-input").value);
             const rewardGoal = parseFloat(document.getElementById("reward-goal-input").value);
 
-            const startRow = parseInt(startCell.dataset.row, 10);
-            const startCol = parseInt(startCell.dataset.col, 10);
-            const endRow = parseInt(endCell.dataset.row, 10);
-            const endCol = parseInt(endCell.dataset.col, 10);
-
-            const obstacleCoords = obstacles.map(function (o) {
-                return [parseInt(o.dataset.row, 10), parseInt(o.dataset.col, 10)];
-            });
+            const { startRow, startCol, endRow, endCol, obstacleCoords } = getCoords();
 
             runBtn.disabled = true;
             runBtn.textContent = "⏳ Computing...";
@@ -144,7 +306,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     renderPolicy();
                     updateIterLabel();
 
-                    // Render optimal path
                     pathData = data.optimal_path || [];
                     renderPath();
 
@@ -208,72 +369,29 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderIteration(idx) {
         const matrix = iterationsData[idx];
         if (!matrix) return;
-
-        let html = '<table class="matrix-table">';
-
-        // Header row (column indices)
-        html += '<tr><th></th>';
-        for (let c = 0; c < n; c++) {
-            html += '<th>' + c + '</th>';
-        }
-        html += '</tr>';
-
-        // Data rows (top-to-bottom, matching grid layout)
-        for (let r = 0; r < n; r++) {
-            html += '<tr><th>' + r + '</th>';
-            for (let c = 0; c < n; c++) {
-                let cls = "";
-                if (startCell && parseInt(startCell.dataset.row, 10) === r && parseInt(startCell.dataset.col, 10) === c) {
-                    cls = "cell-start";
-                } else if (endCell && parseInt(endCell.dataset.row, 10) === r && parseInt(endCell.dataset.col, 10) === c) {
-                    cls = "cell-end";
-                } else if (isObstacle(r, c)) {
-                    cls = "cell-obstacle";
-                }
-                html += '<td class="' + cls + '">' + matrix[r][c].toFixed(2) + '</td>';
-            }
-            html += '</tr>';
-        }
-
-        html += '</table>';
-        valueMatrixEl.innerHTML = html;
+        renderMatrixTable(
+            valueMatrixEl,
+            function (r, c) { return matrix[r][c].toFixed(2); },
+            valueCellClass
+        );
     }
 
     function renderPolicy() {
         if (!policyData || policyData.length === 0) return;
-
-        let html = '<table class="matrix-table">';
-
-        // Header row
-        html += '<tr><th></th>';
-        for (let c = 0; c < n; c++) {
-            html += '<th>' + c + '</th>';
-        }
-        html += '</tr>';
-
-        // Data rows (top-to-bottom, matching grid layout)
-        for (let r = 0; r < n; r++) {
-            html += '<tr><th>' + r + '</th>';
-            for (let c = 0; c < n; c++) {
-                let cls = "";
-                if (isObstacle(r, c)) {
-                    cls = "cell-obstacle";
-                } else if (policyData[r][c] === "★") {
-                    cls = "cell-end";
-                }
-                html += '<td class="policy-cell ' + cls + '">' + policyData[r][c] + '</td>';
+        renderMatrixTable(
+            policyMatrixEl,
+            function (r, c) {
+                const sym = policyData[r][c];
+                return sym === "■" ? "" : sym;
+            },
+            function (r, c) {
+                let base = "policy-cell";
+                if (isObstacle(r, c)) return base + " cell-obstacle";
+                if (policyData[r][c] === "★") return base + " cell-end";
+                if (startCell && parseInt(startCell.dataset.row, 10) === r && parseInt(startCell.dataset.col, 10) === c) return base + " cell-start";
+                return base;
             }
-            html += '</tr>';
-        }
-
-        html += '</table>';
-        policyMatrixEl.innerHTML = html;
-    }
-
-    function isObstacle(r, c) {
-        return obstacles.some(function (o) {
-            return parseInt(o.dataset.row, 10) === r && parseInt(o.dataset.col, 10) === c;
-        });
+        );
     }
 
     function renderPath() {
@@ -281,7 +399,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         pathSection.style.display = "block";
 
-        // Build a set of path coordinates for quick lookup
         var pathSet = {};
         for (var i = 0; i < pathData.length; i++) {
             pathSet[pathData[i][0] + "," + pathData[i][1]] = i;
@@ -292,7 +409,6 @@ document.addEventListener("DOMContentLoaded", function () {
         var endR = endCell ? parseInt(endCell.dataset.row, 10) : -1;
         var endC = endCell ? parseInt(endCell.dataset.col, 10) : -1;
 
-        // Build a visual mini-grid table
         var html = '<table class="path-grid" style="grid-template-columns: repeat(' + n + ', 1fr);">';
         for (var r = 0; r < n; r++) {
             html += '<tr>';
@@ -310,11 +426,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 } else if (isObstacle(r, c)) {
                     cls += " pg-obstacle";
                     content = "■";
-                } else if (policyData && policyData[r] && policyData[r][c]) {
+                } else if (policyData && policyData[r] && policyData[r][c] && policyData[r][c] !== '■') {
                     content = policyData[r][c];
                 }
 
-                // Highlight if on the path (but not start/end)
                 if (pathSet.hasOwnProperty(key) && !(r === startR && c === startC) && !(r === endR && c === endC)) {
                     cls += " pg-path";
                 }
@@ -327,12 +442,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         pathDisplay.innerHTML = html;
 
-        // Path info
         var reached = pathData[pathData.length - 1];
         var success = (reached[0] === endR && reached[1] === endC);
 
         if (success) {
-            pathInfo.innerHTML = '✅ Optimal path: <strong>' + (pathData.length - 1) + '</strong> steps &nbsp;|&nbsp; π(s) = argmax<sub>a</sub> Σ p(s\'|s,a)[r + γV(s\')]';
+            pathInfo.innerHTML = '✅ Optimal path: <strong>' + (pathData.length - 1) + '</strong> steps &nbsp;|&nbsp; π*(s) = argmax<sub>a</sub> Σ p(s\'|s,a)[r + γV(s\')]';
         } else {
             pathInfo.innerHTML = '⚠️ No complete path found to the goal.';
         }

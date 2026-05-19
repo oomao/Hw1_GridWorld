@@ -319,6 +319,73 @@ h3 {
     border: 1px solid #e5e7eb;
 }
 
+.hw-section {
+    margin-top: 14px;
+}
+
+.hw-hint {
+    font-size: 0.82rem;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.run-row-multi {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.run-btn-secondary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+.run-btn-secondary:hover {
+    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45);
+}
+
+.result-block {
+    background: #fafbfc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+    animation: fadeIn 0.4s ease;
+}
+
+.result-block h3 {
+    text-align: center;
+    margin-bottom: 14px;
+    font-size: 1rem;
+    color: #1f2937;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.matrix-block h4 {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #4b5563;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.placeholder {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.85rem;
+    padding: 30px 10px;
+    font-style: italic;
+}
+
+.pe-status {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: 8px;
+}
+
 .run-row {
     display: flex;
     justify-content: center;
