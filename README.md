@@ -43,7 +43,8 @@ HW1/
 ├── static/
 │   ├── style.css       # 樣式
 │   └── script.js       # 前端互動邏輯
-├── AIrecord.md         # AI 對話紀錄
+├── AIrecord/
+│   └── AIrecord.md     # AI 對話紀錄
 ├── requirements.txt    # Python 依賴
 └── README.md           # 本文件
 ```
@@ -101,7 +102,7 @@ python app.py
 
 ## 📝 開發紀錄
 
-詳細的 AI 輔助開發過程記錄在 [AIrecord.md](./AIrecord.md) 中。
+詳細的 AI 輔助開發過程記錄在 [AIrecord/AIrecord.md](./AIrecord/AIrecord.md) 中。
 
 ## 📄 授權
 
