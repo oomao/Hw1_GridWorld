@@ -157,32 +157,37 @@ document.addEventListener("DOMContentLoaded", function () {
         );
     }
 
+    function fetchRandomPolicy() {
+        const { endRow, endCol, obstacleCoords } = getCoords();
+        return fetch("/api/random-policy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                n: n,
+                end: [endRow, endCol],
+                obstacles: obstacleCoords
+            })
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                randomPolicy = data.policy;
+                randomSection.style.display = "block";
+                renderRandomPolicy();
+                return randomPolicy;
+            });
+    }
+
     if (genRandomBtn) {
         genRandomBtn.addEventListener("click", function () {
             if (!endCell) {
                 statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
                 return;
             }
-            const { endRow, endCol, obstacleCoords } = getCoords();
-
-            fetch("/api/random-policy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    n: n,
-                    end: [endRow, endCol],
-                    obstacles: obstacleCoords
-                })
-            })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    randomPolicy = data.policy;
-                    randomSection.style.display = "block";
-                    renderRandomPolicy();
+            fetchRandomPolicy()
+                .then(function () {
                     randomValueEl.innerHTML = '<p class="placeholder">Click "Run Policy Evaluation" to compute V<sup>π</sup>(s).</p>';
                     if (peStatus) peStatus.textContent = "";
-                    runPeBtn.disabled = false;
-                    statusBar.innerHTML = '🎲 Random policy generated. Now run Policy Evaluation.';
+                    statusBar.innerHTML = '🎲 Random policy generated. Click "Run Policy Evaluation" to compute V<sup>π</sup>(s) (optional).';
                 })
                 .catch(function (err) {
                     console.error(err);
@@ -193,16 +198,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (runPeBtn) {
         runPeBtn.addEventListener("click", function () {
-            if (!randomPolicy) {
-                statusBar.innerHTML = '⚠️ Please generate a random policy first.';
-                return;
-            }
             if (!endCell) {
                 statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
                 return;
             }
 
-            const { endRow, endCol, obstacleCoords } = getCoords();
             const gamma = parseFloat(document.getElementById("gamma-input").value) || 0.9;
             const rewardStep = parseFloat(document.getElementById("reward-step-input").value);
             const rewardGoal = parseFloat(document.getElementById("reward-goal-input").value);
@@ -210,19 +210,25 @@ document.addEventListener("DOMContentLoaded", function () {
             runPeBtn.disabled = true;
             runPeBtn.textContent = "⏳ Evaluating...";
 
-            fetch("/api/policy-evaluation", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    n: n,
-                    end: [endRow, endCol],
-                    obstacles: obstacleCoords,
-                    policy: randomPolicy,
-                    gamma: gamma,
-                    reward_step: rewardStep,
-                    reward_goal: rewardGoal
+            const ensurePolicy = randomPolicy ? Promise.resolve(randomPolicy) : fetchRandomPolicy();
+
+            ensurePolicy
+                .then(function () {
+                    const { endRow, endCol, obstacleCoords } = getCoords();
+                    return fetch("/api/policy-evaluation", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            n: n,
+                            end: [endRow, endCol],
+                            obstacles: obstacleCoords,
+                            policy: randomPolicy,
+                            gamma: gamma,
+                            reward_step: rewardStep,
+                            reward_goal: rewardGoal
+                        })
+                    });
                 })
-            })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     const finalV = data.iterations[data.iterations.length - 1];

@@ -50,8 +50,6 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("random-section").style.display = "none";
             document.getElementById("iteration-section").style.display = "none";
             document.getElementById("path-section").style.display = "none";
-            const runPeBtn = document.getElementById("run-pe-btn");
-            if (runPeBtn) runPeBtn.disabled = true;
             mainLayout.style.display = "flex";
             updateStatus();
         });
@@ -288,17 +286,12 @@ document.addEventListener("DOMContentLoaded", function () {
             renderRandomPolicy();
             randomValueEl.innerHTML = '<p class="placeholder">Click "Run Policy Evaluation" to compute V<sup>π</sup>(s).</p>';
             if (peStatus) peStatus.textContent = "";
-            runPeBtn.disabled = false;
-            statusBar.innerHTML = '🎲 Random policy generated. Now run Policy Evaluation.';
+            statusBar.innerHTML = '🎲 Random policy generated. Click "Run Policy Evaluation" to compute V<sup>π</sup>(s) (optional).';
         });
     }
 
     if (runPeBtn) {
         runPeBtn.addEventListener("click", function () {
-            if (!randomPolicy) {
-                statusBar.innerHTML = '⚠️ Please generate a random policy first.';
-                return;
-            }
             if (!endCell) {
                 statusBar.innerHTML = '⚠️ Please set the <strong>end point</strong> first.';
                 return;
@@ -312,6 +305,11 @@ document.addEventListener("DOMContentLoaded", function () {
             runPeBtn.textContent = "⏳ Evaluating...";
 
             setTimeout(() => {
+                if (!randomPolicy) {
+                    randomPolicy = generateRandomPolicyJS();
+                    randomSection.style.display = "block";
+                    renderRandomPolicy();
+                }
                 const result = policyEvaluationJS(randomPolicy, gamma, rewardStep, rewardGoal);
                 renderRandomValue(result.V);
                 if (peStatus) {
